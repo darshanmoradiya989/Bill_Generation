@@ -2,15 +2,11 @@ package com.example.Bill_Generation.Service;
 
 import com.example.Bill_Generation.Model.*;
 import com.example.Bill_Generation.Repository.*;
-import org.aspectj.weaver.ast.Or;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.util.Optional;
 import java.util.Random;
-import java.util.logging.Logger;
 
 @Service
 public class OrderDetailService {
@@ -53,34 +49,44 @@ public class OrderDetailService {
                 }
             }
 
-            boolean paymentSuccess = processPayment();
-            if (!paymentSuccess) {
-                return new ResponseDTO<>(null, HttpStatus.PAYMENT_REQUIRED, "payment failed");
-            }
-
-            OrderDetail savedOrderDetail = orderDetailRepository.save(orderDetail);
-            orderItemRepository.saveAll(orderDetail.getOrderItems());
-
-            Bill bill = billService.generateBill(savedOrderDetail);
-            billRepository.save(bill);
-
             Customer customer = customerRepository.findById(orderDetail.getCustomerId()).orElseThrow(() -> new RuntimeException("Product not found with ID: " + orderDetail.getCustomerId()));
             String customerPhoneNumber = String.valueOf(customer.getMobileNumber());
 
-            String message = String.format(
-                    "Hello %s! Your order with ID %s has been successfully placed. Your total payment is %.2f. Thank you for choosing us. We'll notify you once it's on its way.",
+            boolean paymentSuccess = processPayment();
+            if (!paymentSuccess) {
+                // payment failed msg
+                String paymentFailed = String.format(
+                        "⚠️ Hello %s! Unfortunately, your order could not be processed due to a payment failure. Please try again or contact support for assistance. We're here to help! 🙏",
+                        customer.getName()
+                );
+                smsService.sendSms(customerPhoneNumber, paymentFailed);
+                whatsAppMessage.sendWhatsAppMessage(customerPhoneNumber, paymentFailed);
+                return new ResponseDTO<>(null, HttpStatus.PAYMENT_REQUIRED, "payment failed");
+            }
+
+            // save all details
+            OrderDetail savedOrderDetail = orderDetailRepository.save(orderDetail);
+            orderItemRepository.saveAll(orderDetail.getOrderItems());
+            Bill bills = billService.generateBill(savedOrderDetail);
+            billRepository.save(bills);
+
+            // payment success msg
+            String paymentSuccessMsg = String.format(
+                    "🎉 Hello %s! 🛒 Your order (ID: %s) has been successfully placed! 💳 Total payment: ₹%.2f. Thank you for choosing us! 🙏 We'll notify you once it's on its way. 🚚✨",
                     customer.getName(),
                     orderDetail.getOrderId(),
-                    bill.getTotalAmount()
+                    bills.getTotalAmount()
             );
-            smsService.sendSms(customerPhoneNumber, message);
-            whatsAppMessage.sendWhatsAppMessage(customerPhoneNumber, message);
+            smsService.sendSms(customerPhoneNumber, paymentSuccessMsg);
+            whatsAppMessage.sendWhatsAppMessage(customerPhoneNumber, paymentSuccessMsg);
 
+            //update inventory
             for (OrderItem orderItem : savedOrderDetail.getOrderItems()) {
                 Product product = productRepository.findById(orderItem.getProductId()).orElseThrow(() -> new RuntimeException("Product not found with ID: " + orderItem.getProductId()));
                 product.setInventory(product.getInventory() - orderItem.getQuantity());
                 productRepository.save(product);
 
+                //alert to admin for threshold product
                 if (product.getInventory() < INVENTORY_THRESHOLD) {
                     alertService.sendAlert(product.getProductId(), product.getProductName(), product.getInventory());
                 }

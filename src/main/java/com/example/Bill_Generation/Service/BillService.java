@@ -21,27 +21,24 @@ public class BillService {
         double totalAmount = 0.0;
 
         for (OrderItem item : orderDetail.getOrderItems()) {
-            Product product = productRepository.findById(item.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Product not found with ID: " + item.getProductId()));
-
+            Product product = productRepository.findById(item.getProductId()).orElseThrow(() -> new RuntimeException("Product not found with id " + item.getProductId()));
             double productPrice = product.getPrice();
-            double gstRate = product.getGst();
+            double productGst = product.getGst();
             double itemTotal = item.getQuantity() * productPrice;
-            double gstAmount = itemTotal * (gstRate / 100);
+            double gstAmount = itemTotal * (productGst / 100);
             totalAmount += itemTotal + gstAmount;
         }
 
         Bill bill = new Bill();
-        bill.setOrderId(orderDetail.getOrderId());
         bill.setDate(LocalDate.now());
         bill.setTotalAmount(totalAmount);
         bill.setCustomerId(orderDetail.getCustomerId());
+        bill.setOrderId(orderDetail.getOrderId());
 
-        Customer customer = customerRepository.findById(orderDetail.getCustomerId())
-                .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + orderDetail.getCustomerId()));
+        Customer customer = customerRepository.findById(orderDetail.getCustomerId()).orElseThrow(() -> new RuntimeException("customer not found with id " + orderDetail.getCustomerId()));
         bill.setCustomerName(customer.getName());
-        bill.setCustomerEmail(customer.getEmail());
         bill.setCustomerMobileNumber(customer.getMobileNumber());
+        bill.setCustomerEmail(customer.getEmail());
 
         return bill;
     }
