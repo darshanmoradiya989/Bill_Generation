@@ -1,4 +1,4 @@
-# Bill_Generation System
+# Bill Generation System
 
 • Technologies Used: Java, Spring boot, MySQL
 
