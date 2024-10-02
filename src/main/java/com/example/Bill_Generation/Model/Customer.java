@@ -19,17 +19,6 @@ public class Customer {
     @Column(name = "email")
     private String email;
 
-//    @OneToMany(mappedBy = "customer")
-//    private List<OrderDetail> orders;
-
-//    public List<OrderDetail> getOrders() {
-//        return orders;
-//    }
-//
-//    public void setOrders(List<OrderDetail> orders) {
-//        this.orders = orders;
-//    }
-
     public String getEmail() {
         return email;
     }
